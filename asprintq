@@ -18,6 +18,7 @@ OUTPUT_FILE=""
 LHOST=""
 LPORT=""
 PAYLOAD=""
+USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
 # دالة مسح الشاشة وعرض الترويسة
 header() {
@@ -33,20 +34,56 @@ header() {
 read_input() {
     local prompt="$1"
     local var_name="$2"
+    local is_password="$3"
+    
     echo -ne "${GREEN}${prompt}: ${NC}"
-    read input
+    if [[ "$is_password" == "true" ]]; then
+        read -s input
+        echo
+    else
+        read input
+    fi
     eval $var_name="'$input'"
 }
 
-# دالة تنفيذ الأمر
+# دالة التحقق من التثبيت
+check_installed() {
+    local tool="$1"
+    if ! command -v $tool &> /dev/null; then
+        echo -e "${RED}✗ $tool غير مثبت${NC}"
+        return 1
+    else
+        echo -e "${GREEN}✓ $tool مثبت${NC}"
+        return 0
+    fi
+}
+
+# دالة تنفيذ الأمر مع التحقق
 execute_command() {
     local cmd="$1"
+    local require_sudo="$2"
+    
     echo -e "\n${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${CYAN}الأمر المُنفذ:${NC}"
     echo -e "${WHITE}$cmd${NC}"
     echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
     
-    echo -e "${GREEN}هل تريد تنفيذ الأمر؟ (y/n):${NC} "
+    # التحقق من الحاجة لصلاحيات root
+    if [[ "$require_sudo" == "true" && $EUID -ne 0 ]]; then
+        echo -e "${RED}⚠️ هذا الأمر يحتاج صلاحيات root${NC}"
+        echo -e "${YELLOW}هل تريد تنفيذه بـ sudo؟ (y/n):${NC}"
+        read confirm
+        if [[ $confirm == "y" || $confirm == "Y" ]]; then
+            cmd="sudo $cmd"
+        else
+            echo -e "${RED}تم إلغاء التنفيذ${NC}"
+            echo -e "\n${PURPLE}اضغط Enter للمتابعة...${NC}"
+            read
+            return
+        fi
+    fi
+    
+    echo -e "${GREEN}هل تريد تنفيذ الأمر؟ (y/n):${NC}"
     read confirm
     if [[ $confirm == "y" || $confirm == "Y" ]]; then
         eval $cmd
@@ -103,7 +140,7 @@ metasploit_menu() {
                 execute_command "$CMD"
                 ;;
             4)
-                read_input "أدخل نوع النظام (windows/meterpreter/reverse_tcp)" PAYLOAD
+                read_input "أدخل نوع Payload (مثل: windows/meterpreter/reverse_tcp)" PAYLOAD
                 read_input "أدخل عنوان IP المهاجم (LHOST)" LHOST
                 read_input "أدخل منفذ الاستماع (LPORT)" LPORT
                 read_input "أدخل اسم ملف الإخراج" OUTPUT_FILE
@@ -697,7 +734,7 @@ nmap_menu() {
             2)
                 read_input "أدخل IP/Hostname الهدف" TARGET
                 CMD="sudo nmap -sS $TARGET"
-                execute_command "$CMD"
+                execute_command "$CMD" "true"
                 ;;
             3)
                 read_input "أدخل IP/Hostname الهدف" TARGET
@@ -707,7 +744,7 @@ nmap_menu() {
             4)
                 read_input "أدخل IP/Hostname الهدف" TARGET
                 CMD="sudo nmap -sU $TARGET"
-                execute_command "$CMD"
+                execute_command "$CMD" "true"
                 ;;
             5)
                 read_input "أدخل IP/Hostname الهدف" TARGET
@@ -717,12 +754,12 @@ nmap_menu() {
             6)
                 read_input "أدخل IP/Hostname الهدف" TARGET
                 CMD="sudo nmap -O $TARGET"
-                execute_command "$CMD"
+                execute_command "$CMD" "true"
                 ;;
             7)
                 read_input "أدخل IP/Hostname الهدف" TARGET
                 CMD="sudo nmap -A -T4 $TARGET"
-                execute_command "$CMD"
+                execute_command "$CMD" "true"
                 ;;
             8)
                 read_input "أدخل IP/Hostname الهدف" TARGET
@@ -778,7 +815,7 @@ nmap_menu() {
                 read_input "ملف الإخراج (اتركه فارغ لعدم الحفظ)" OUTPUT
                 
                 CMD="nmap"
-                [ ! -z "$SCAN_TYPE" ] && CMD="$CMD -s$SCAN_TYPE"
+                [ ! -z "$SCAN_TYPE" ] && CMD="$CMD -$SCAN_TYPE"
                 [ ! -z "$PORTS" ] && CMD="$CMD -p $PORTS"
                 [ ! -z "$TIMING" ] && CMD="$CMD -T$TIMING"
                 [ ! -z "$SCRIPTS" ] && CMD="$CMD --script $SCRIPTS"
@@ -799,7 +836,214 @@ nmap_menu() {
 }
 
 # ═══════════════════════════════════════════════════════════
-# القائمة الرئيسية
+# DIRB - اكتشاف الملفات والمجلدات
+# ═══════════════════════════════════════════════════════════
+dirb_menu() {
+    while true; do
+        header
+        echo -e "${BLUE}╔═══════════════════════════════════════╗${NC}"
+        echo -e "${BLUE}║${WHITE}        DIRB - اكتشاف المحتوى          ${BLUE}║${NC}"
+        echo -e "${BLUE}╚═══════════════════════════════════════╝${NC}"
+        echo ""
+        echo -e "${CYAN}[1]${NC} فحص أساسي"
+        echo -e "${CYAN}[2]${NC} فحص مع قائمة كلمات مخصصة"
+        echo -e "${CYAN}[3]${NC} فحص مع extensions محددة"
+        echo -e "${CYAN}[4]${NC} فحص متقدم مع جميع الخيارات"
+        echo -e "${CYAN}[5]${NC} فحص مع عدم اظلاف الأخطاء 404"
+        echo -e "${CYAN}[6]${NC} فحص مع User-Agent مخصص"
+        echo -e "${CYAN}[7]${NC} فحص مع Cookie"
+        echo -e "${CYAN}[8]${NC} فحص متعدد المسارات"
+        echo -e "${CYAN}[0]${NC} رجوع للقائمة الرئيسية"
+        echo ""
+        echo -ne "${GREEN}اختر رقم الخيار: ${NC}"
+        read choice
+        
+        case $choice in
+            1)
+                read_input "أدخل URL الهدف" TARGET
+                CMD="dirb $TARGET"
+                execute_command "$CMD"
+                ;;
+            2)
+                read_input "أدخل URL الهدف" TARGET
+                read_input "أدخل مسار قائمة الكلمات" WORDLIST
+                CMD="dirb $TARGET $WORDLIST"
+                execute_command "$CMD"
+                ;;
+            3)
+                read_input "أدخل URL الهدف" TARGET
+                read_input "أدخل extensions (مثل: .php,.html,.txt)" EXTENSIONS
+                CMD="dirb $TARGET -X $EXTENSIONS"
+                execute_command "$CMD"
+                ;;
+            4)
+                read_input "أدخل URL الهدف" TARGET
+                read_input "أدخل قائمة الكلمات (اختياري)" WORDLIST
+                read_input "أدخل extensions (اختياري)" EXTENSIONS
+                read_input "أدخل معدل التخمين (1-10)" RATE
+                
+                CMD="dirb $TARGET"
+                [[ ! -z "$WORDLIST" ]] && CMD="$CMD $WORDLIST"
+                [[ ! -z "$EXTENSIONS" ]] && CMD="$CMD -X $EXTENSIONS"
+                CMD="$CMD -z $RATE"
+                
+                execute_command "$CMD"
+                ;;
+            5)
+                read_input "أدخل URL الهدف" TARGET
+                CMD="dirb $TARGET -N 404"
+                execute_command "$CMD"
+                ;;
+            6)
+                read_input "أدخل URL الهدف" TARGET
+                read_input "أدخل User-Agent" USER_AGENT
+                CMD="dirb $TARGET -a \"$USER_AGENT\""
+                execute_command "$CMD"
+                ;;
+            7)
+                read_input "أدخل URL الهدف" TARGET
+                read_input "أدخل Cookie" COOKIE
+                CMD="dirb $TARGET -c \"$COOKIE\""
+                execute_command "$CMD"
+                ;;
+            8)
+                read_input "أدخل URL الأساسي" BASE_URL
+                read_input "أدخل المسارات الإضافية (مثل: /admin,/api,/test)" PATHS
+                CMD="echo \"$PATHS\" | tr ',' '\n' | xargs -I {} dirb \"$BASE_URL{}\""
+                execute_command "$CMD"
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo -e "${RED}خيار غير صحيح!${NC}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
+# ═══════════════════════════════════════════════════════════
+# HYDRA - كسر كلمات المرور
+# ═══════════════════════════════════════════════════════════
+hydra_menu() {
+    while true; do
+        header
+        echo -e "${RED}╔═══════════════════════════════════════╗${NC}"
+        echo -e "${RED}║${WHITE}        HYDRA - كسر كلمات المرور        ${RED}║${NC}"
+        echo -e "${RED}╚═══════════════════════════════════════╝${NC}"
+        echo ""
+        echo -e "${CYAN}[1]${NC} هجوم على SSH"
+        echo -e "${CYAN}[2]${NC} هجوم على FTP"
+        echo -e "${CYAN}[3]${NC} هجوم على HTTP/HTTPS"
+        echo -e "${CYAN}[4]${NC} هجوم على MySQL"
+        echo -e "${CYAN}[5]${NC} هجوم على RDP"
+        echo -e "${CYAN}[6]${NC} هجوم على Telnet"
+        echo -e "${CYAN}[7]${NC} هجوم مخصص"
+        echo -e "${CYAN}[8]${NC} هجوم بقائمة مستخدمين"
+        echo -e "${CYAN}[9]${NC} هجوم بقائمة كلمات مرور"
+        echo -e "${CYAN}[10]${NC} هجوم متقدم"
+        echo -e "${CYAN}[0]${NC} رجوع للقائمة الرئيسية"
+        echo ""
+        echo -ne "${GREEN}اختر رقم الخيار: ${NC}"
+        read choice
+        
+        case $choice in
+            1)
+                read_input "أدخل IP الهدف" TARGET
+                read_input "أدخل اسم المستخدم" USERNAME
+                read_input "أدخل مسار قائمة كلمات المرور" PASS_FILE
+                CMD="hydra -l $USERNAME -P $PASS_FILE ssh://$TARGET"
+                execute_command "$CMD"
+                ;;
+            2)
+                read_input "أدخل IP الهدف" TARGET
+                read_input "أدخل اسم المستخدم" USERNAME
+                read_input "أدخل مسار قائمة كلمات المرور" PASS_FILE
+                CMD="hydra -l $USERNAME -P $PASS_FILE ftp://$TARGET"
+                execute_command "$CMD"
+                ;;
+            3)
+                read_input "أدخل URL الهدف" TARGET
+                read_input "أدخل نوع النموذج (POST/GET)" METHOD
+                read_input "أدخل حقل اسم المستخدم" USER_FIELD
+                read_input "أدخل حقل كلمة المرور" PASS_FIELD
+                read_input "أدخل رسالة الفشل" FAIL_MSG
+                
+                CMD="hydra -l admin -P /usr/share/wordlists/rockyou.txt $TARGET http-$METHOD \"/login.php:$USER_FIELD=^USER^&$PASS_FIELD=^PASS^:$FAIL_MSG\""
+                execute_command "$CMD"
+                ;;
+            4)
+                read_input "أدخل IP الهدف" TARGET
+                read_input "أدخل اسم المستخدم" USERNAME
+                read_input "أدخل مسار قائمة كلمات المرور" PASS_FILE
+                CMD="hydra -l $USERNAME -P $PASS_FILE mysql://$TARGET"
+                execute_command "$CMD"
+                ;;
+            5)
+                read_input "أدخل IP الهدف" TARGET
+                read_input "أدخل اسم المستخدم" USERNAME
+                read_input "أدخل مسار قائمة كلمات المرور" PASS_FILE
+                CMD="hydra -l $USERNAME -P $PASS_FILE rdp://$TARGET"
+                execute_command "$CMD"
+                ;;
+            6)
+                read_input "أدخل IP الهدف" TARGET
+                read_input "أدخل اسم المستخدم" USERNAME
+                read_input "أدخل مسار قائمة كلمات المرور" PASS_FILE
+                CMD="hydra -l $USERNAME -P $PASS_FILE telnet://$TARGET"
+                execute_command "$CMD"
+                ;;
+            7)
+                read_input "أدخل الهدف (IP أو URL)" TARGET
+                read_input "أدخل الخدمة (ssh,ftp,http-post-form,etc)" SERVICE
+                read_input "أدخل المعلمات الإضافية" PARAMS
+                CMD="hydra $PARAMS $SERVICE://$TARGET"
+                execute_command "$CMD"
+                ;;
+            8)
+                read_input "أدخل IP الهدف" TARGET
+                read_input "أدخل مسار قائمة المستخدمين" USER_FILE
+                read_input "أدخل مسار قائمة كلمات المرور" PASS_FILE
+                read_input "أدخل الخدمة" SERVICE
+                CMD="hydra -L $USER_FILE -P $PASS_FILE $SERVICE://$TARGET"
+                execute_command "$CMD"
+                ;;
+            9)
+                read_input "أدخل IP الهدف" TARGET
+                read_input "أدخل اسم المستخدم" USERNAME
+                read_input "أدخل مسار قائمة كلمات المرور" PASS_FILE
+                read_input "أدخل الخدمة" SERVICE
+                read_input "أدخل المنفذ (اختياري)" PORT
+                
+                CMD="hydra -l $USERNAME -P $PASS_FILE"
+                [[ ! -z "$PORT" ]] && CMD="$CMD -s $PORT"
+                CMD="$CMD $SERVICE://$TARGET"
+                
+                execute_command "$CMD"
+                ;;
+            10)
+                read_input "أدخل IP الهدف" TARGET
+                read_input "أدخل الخدمة" SERVICE
+                read_input "أدخل عدد المهام المتوازية" TASKS
+                read_input "أدخل الوقت بين المحاولات (ثواني)" WAIT
+                
+                CMD="hydra -L users.txt -P passwords.txt -t $TASKS -w $WAIT -vV $SERVICE://$TARGET"
+                execute_command "$CMD"
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo -e "${RED}خيار غير صحيح!${NC}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
+# ═══════════════════════════════════════════════════════════
+# القائمة الرئيسية المحسنة
 # ═══════════════════════════════════════════════════════════
 main_menu() {
     while true; do
@@ -813,9 +1057,15 @@ main_menu() {
         echo -e "${GREEN}  [3] Netcat    ${NC}- أداة الشبكات متعددة الاستخدامات"
         echo -e "${PURPLE}  [4] Nmap      ${NC}- فحص المنافذ والشبكات"
         echo -e "${YELLOW}  [5] Metasploit${NC}- إطار العمل الشامل للاستغلال"
+        echo -e "${CYAN}  [6] Dirb      ${NC}- اكتشاف الملفات والمجلدات"
+        echo -e "${RED}  [7] Hydra     ${NC}- كسر كلمات المرور"
+        echo -e "${PURPLE}  [8] Gobuster  ${NC}- اكتشاف المحتوى والنطاقات"
+        echo -e "${YELLOW}  [9] Nikto     ${NC}- فحص خواد الويب"
+        echo -e "${BLUE}  [10] John     ${NC}- كسر كلمات المرور"
         echo ""
-        echo -e "${YELLOW}  [6] تحقق من تثبيت الأدوات${NC}"
-        echo -e "${CYAN}  [7] معلومات وتعليمات${NC}"
+        echo -e "${YELLOW}  [11] تحقق من تثبيت الأدوات${NC}"
+        echo -e "${CYAN}  [12] معلومات وتعليمات${NC}"
+        echo -e "${GREEN}  [13] إعدادات متقدمة${NC}"
         echo -e "${RED}  [0] خروج${NC}"
         echo ""
         echo -ne "${GREEN}اختر رقم الأداة: ${NC}"
@@ -827,8 +1077,14 @@ main_menu() {
             3) netcat_menu ;;
             4) nmap_menu ;;
             5) metasploit_menu ;;
-            6) check_tools ;;
-            7) show_help ;;
+            6) dirb_menu ;;
+            7) hydra_menu ;;
+            8) gobuster_menu ;;
+            9) nikto_menu ;;
+            10) john_menu ;;
+            11) check_tools ;;
+            12) show_help ;;
+            13) advanced_settings ;;
             0) 
                 echo -e "${CYAN}شكراً لاستخدام الأداة!${NC}"
                 exit 0
@@ -841,6 +1097,170 @@ main_menu() {
     done
 }
 
+# ═══════════════════════════════════════════════════════════
+# دوال الأدوات المتبقية
+# ═══════════════════════════════════════════════════════════
+
+# GOBUSTER - اكتشاف الملفات والنطاقات
+gobuster_menu() {
+    while true; do
+        header
+        echo -e "${PURPLE}╔═══════════════════════════════════════╗${NC}"
+        echo -e "${PURPLE}║${WHITE}       GOBUSTER - اكتشاف المحتوى        ${PURPLE}║${NC}"
+        echo -e "${PURPLE}╚═══════════════════════════════════════╝${NC}"
+        echo ""
+        echo -e "${CYAN}[1]${NC} اكتشاف المجلدات (dir)"
+        echo -e "${CYAN}[2]${NC} اكتشاف النطاقات الفرعية (dns)"
+        echo -e "${CYAN}[3]${NC} اكتشاف مع extensions"
+        echo -e "${CYAN}[4]${NC} اكتشاف متقدم"
+        echo -e "${CYAN}[0]${NC} رجوع للقائمة الرئيسية"
+        echo ""
+        echo -ne "${GREEN}اختر رقم الخيار: ${NC}"
+        read choice
+        
+        case $choice in
+            1)
+                read_input "أدخل URL الهدف" TARGET
+                read_input "أدخل مسار قائمة الكلمات" WORDLIST
+                CMD="gobuster dir -u $TARGET -w $WORDLIST"
+                execute_command "$CMD"
+                ;;
+            2)
+                read_input "أدخل النطاق الهدف" DOMAIN
+                read_input "أدخل مسار قائمة الكلمات" WORDLIST
+                CMD="gobuster dns -d $DOMAIN -w $WORDLIST"
+                execute_command "$CMD"
+                ;;
+            3)
+                read_input "أدخل URL الهدف" TARGET
+                read_input "أدخل مسار قائمة الكلمات" WORDLIST
+                read_input "أدخل extensions (مثل: php,html,txt)" EXTENSIONS
+                CMD="gobuster dir -u $TARGET -w $WORDLIST -x $EXTENSIONS"
+                execute_command "$CMD"
+                ;;
+            4)
+                read_input "أدخل URL الهدف" TARGET
+                read_input "أدخل مسار قائمة الكلمات" WORDLIST
+                read_input "أدخل عدد threads" THREADS
+                CMD="gobuster dir -u $TARGET -w $WORDLIST -t $THREADS -q"
+                execute_command "$CMD"
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo -e "${RED}خيار غير صحيح!${NC}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
+# NIKTO - فحص خواد الويب
+nikto_menu() {
+    while true; do
+        header
+        echo -e "${YELLOW}╔═══════════════════════════════════════╗${NC}"
+        echo -e "${YELLOW}║${WHITE}         NIKTO - فحص خواد الويب         ${YELLOW}║${NC}"
+        echo -e "${YELLOW}╚═══════════════════════════════════════╝${NC}"
+        echo ""
+        echo -e "${CYAN}[1]${NC} فحص أساسي"
+        echo -e "${CYAN}[2]${NC} فحص مع منفذ مخصص"
+        echo -e "${CYAN}[3]${NC} فحص مع SSL/TLS"
+        echo -e "${CYAN}[4]${NC} فحص متقدم"
+        echo -e "${CYAN}[0]${NC} رجوع للقائمة الرئيسية"
+        echo ""
+        echo -ne "${GREEN}اختر رقم الخيار: ${NC}"
+        read choice
+        
+        case $choice in
+            1)
+                read_input "أدخل URL الهدف" TARGET
+                CMD="nikto -h $TARGET"
+                execute_command "$CMD"
+                ;;
+            2)
+                read_input "أدخل URL الهدف" TARGET
+                read_input "أدخل المنفذ" PORT
+                CMD="nikto -h $TARGET -p $PORT"
+                execute_command "$CMD"
+                ;;
+            3)
+                read_input "أدخل URL الهدف" TARGET
+                CMD="nikto -h $TARGET -ssl"
+                execute_command "$CMD"
+                ;;
+            4)
+                read_input "أدخل URL الهدف" TARGET
+                CMD="nikto -h $TARGET -Display V -Format htm -o nikto_report.html"
+                execute_command "$CMD"
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo -e "${RED}خيار غير صحيح!${NC}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
+# JOHN THE RIPPER - كسر كلمات المرور
+john_menu() {
+    while true; do
+        header
+        echo -e "${RED}╔═══════════════════════════════════════╗${NC}"
+        echo -e "${RED}║${WHITE}      JOHN THE RIPPER - كسر كلمات المرور   ${RED}║${NC}"
+        echo -e "${RED}╚═══════════════════════════════════════╝${NC}"
+        echo ""
+        echo -e "${CYAN}[1]${NC} كسر كلمات مرور Linux (shadow)"
+        echo -e "${CYAN}[2]${NC} كسر كلمات مرور Windows"
+        echo -e "${CYAN}[3]${NC} كسر كلمات مرور ZIP"
+        echo -e "${CYAN}[4]${NC} كسر باستخدام قائمة كلمات"
+        echo -e "${CYAN}[0]${NC} رجوع للقائمة الرئيسية"
+        echo ""
+        echo -ne "${GREEN}اختر رقم الخيار: ${NC}"
+        read choice
+        
+        case $choice in
+            1)
+                read_input "أدخل مسار ملف shadow" SHADOW_FILE
+                read_input "أدخل مسار ملف passwd" PASSWD_FILE
+                CMD="unshadow $PASSWD_FILE $SHADOW_FILE > hashes.txt && john hashes.txt"
+                execute_command "$CMD"
+                ;;
+            2)
+                read_input "أدخل مسار ملف hashes الخاص بـ Windows" HASH_FILE
+                CMD="john --format=nt $HASH_FILE"
+                execute_command "$CMD"
+                ;;
+            3)
+                read_input "أدخل مسار ملف ZIP" ZIP_FILE
+                CMD="zip2john $ZIP_FILE > zip_hash.txt && john zip_hash.txt"
+                execute_command "$CMD"
+                ;;
+            4)
+                read_input "أدخل مسار ملف Hashes" HASH_FILE
+                read_input "أدخل مسار قائمة كلمات المرور" WORDLIST
+                CMD="john --wordlist=$WORDLIST $HASH_FILE"
+                execute_command "$CMD"
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo -e "${RED}خيار غير صحيح!${NC}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
+# ═══════════════════════════════════════════════════════════
+# دوال التحقق والمساعدة
+# ═══════════════════════════════════════════════════════════
+
 # دالة التحقق من تثبيت الأدوات
 check_tools() {
     header
@@ -849,69 +1269,39 @@ check_tools() {
     echo -e "${YELLOW}╚═══════════════════════════════════════╝${NC}"
     echo ""
     
-    # التحقق من SQLMap
-    if command -v sqlmap &> /dev/null; then
-        echo -e "${GREEN}✓ SQLMap مثبت${NC}"
-        sqlmap --version 2>/dev/null | head -1
-    else
-        echo -e "${RED}✗ SQLMap غير مثبت${NC}"
-        echo -e "${CYAN}  للتثبيت: git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git${NC}"
-    fi
-    echo ""
+    local tools=(
+        "sqlmap" "amass" "nc" "nmap" "msfconsole" "msfvenom" 
+        "dirb" "hydra" "gobuster" "nikto" "john"
+    )
     
-    # التحقق من Amass
-    if command -v amass &> /dev/null; then
-        echo -e "${GREEN}✓ Amass مثبت${NC}"
-        amass -version 2>/dev/null
-    else
-        echo -e "${RED}✗ Amass غير مثبت${NC}"
-        echo -e "${CYAN}  للتثبيت: sudo apt install amass${NC}"
-    fi
-    echo ""
+    local descriptions=(
+        "فحص ثغرات SQL Injection"
+        "استكشاف النطاقات الفرعية"
+        "أداة الشبكات متعددة الاستخدامات"
+        "فحص المنافذ والشبكات"
+        "إطار العمل الشامل للاستغلال"
+        "إنشاء Payloads"
+        "اكتشاف الملفات والمجلدات"
+        "كسر كلمات المرور"
+        "اكتشاف المحتوى والنطاقات"
+        "فحص خواد الويب"
+        "كسر كلمات المرور"
+    )
     
-    # التحقق من Netcat
-    if command -v nc &> /dev/null; then
-        echo -e "${GREEN}✓ Netcat مثبت${NC}"
-        nc -h 2>&1 | head -1
-    else
-        echo -e "${RED}✗ Netcat غير مثبت${NC}"
-        echo -e "${CYAN}  للتثبيت: sudo apt install netcat${NC}"
-    fi
-    echo ""
+    for i in "${!tools[@]}"; do
+        tool="${tools[$i]}"
+        desc="${descriptions[$i]}"
+        
+        echo -ne "${WHITE}$tool${NC} - $desc: "
+        check_installed "$tool"
+    done
     
-    # التحقق من Nmap
-    if command -v nmap &> /dev/null; then
-        echo -e "${GREEN}✓ Nmap مثبت${NC}"
-        nmap --version | head -1
-    else
-        echo -e "${RED}✗ Nmap غير مثبت${NC}"
-        echo -e "${CYAN}  للتثبيت: sudo apt install nmap${NC}"
-    fi
     echo ""
-    
-    # التحقق من Metasploit
-    if command -v msfconsole &> /dev/null; then
-        echo -e "${GREEN}✓ Metasploit مثبت${NC}"
-        msfconsole --version 2>/dev/null || echo "Metasploit Framework موجود"
-    else
-        echo -e "${RED}✗ Metasploit غير مثبت${NC}"
-        echo -e "${CYAN}  للتثبيت: curl https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb > msfinstall && chmod 755 msfinstall && ./msfinstall${NC}"
-    fi
-    echo ""
-    
-    # التحقق من Msfvenom
-    if command -v msfvenom &> /dev/null; then
-        echo -e "${GREEN}✓ Msfvenom مثبت${NC}"
-    else
-        echo -e "${RED}✗ Msfvenom غير مثبت${NC}"
-    fi
-    echo ""
-    
     echo -e "${PURPLE}اضغط Enter للعودة...${NC}"
     read
 }
 
-# دالة عرض المساعدة والمعلومات
+# دالة عرض المساعدة
 show_help() {
     header
     echo -e "${CYAN}╔═══════════════════════════════════════════════════════════╗${NC}"
@@ -919,42 +1309,17 @@ show_help() {
     echo -e "${CYAN}╚═══════════════════════════════════════════════════════════╝${NC}"
     echo ""
     
-    echo -e "${YELLOW}═══ SQLMap ═══${NC}"
-    echo -e "${WHITE}أداة اختبار أمان تلقائية لكشف واستغلال ثغرات SQL Injection${NC}"
-    echo -e "${CYAN}• استخدمها لفحص تطبيقات الويب${NC}"
-    echo -e "${CYAN}• يمكنها استخراج قواعد البيانات والجداول والبيانات${NC}"
-    echo -e "${CYAN}• مثال: sqlmap -u 'http://site.com/page?id=1' --dbs${NC}"
-    echo ""
-    
-    echo -e "${YELLOW}═══ Amass ═══${NC}"
-    echo -e "${WHITE}أداة استكشاف النطاقات الفرعية وجمع المعلومات${NC}"
-    echo -e "${CYAN}• يكتشف النطاقات الفرعية المخفية${NC}"
-    echo -e "${CYAN}• يستخدم مصادر متعددة (DNS, Certificates, APIs)${NC}"
-    echo -e "${CYAN}• مثال: amass enum -passive -d target.com${NC}"
-    echo ""
-    
-    echo -e "${YELLOW}═══ Netcat ═══${NC}"
-    echo -e "${WHITE}أداة شبكات متعددة الاستخدامات (Swiss Army Knife)${NC}"
-    echo -e "${CYAN}• نقل الملفات بين الأجهزة${NC}"
-    echo -e "${CYAN}• فحص المنافذ المفتوحة${NC}"
-    echo -e "${CYAN}• إنشاء Reverse/Bind Shells${NC}"
-    echo -e "${CYAN}• مثال: nc -lvp 4444 (استماع على منفذ)${NC}"
-    echo ""
-    
-    echo -e "${YELLOW}═══ Nmap ═══${NC}"
-    echo -e "${WHITE}أداة فحص الشبكات واكتشاف الأجهزة والخدمات${NC}"
-    echo -e "${CYAN}• فحص المنافذ المفتوحة${NC}"
-    echo -e "${CYAN}• كشف أنظمة التشغيل والخدمات${NC}"
-    echo -e "${CYAN}• اكتشاف الثغرات باستخدام NSE Scripts${NC}"
-    echo -e "${CYAN}• مثال: nmap -A -T4 192.168.1.1${NC}"
-    echo ""
-    
-    echo -e "${YELLOW}═══ Metasploit ═══${NC}"
-    echo -e "${WHITE}إطار عمل شامل لتطوير وتنفيذ واستغلال الثغرات${NC}"
-    echo -e "${CYAN}• إنشاء وتنفيذ Payloads${NC}"
-    echo -e "${CYAN}• Post-Exploitation Modules${NC}"
-    echo -e "${CYAN}• إدارة الجلسات عن بعد${NC}"
-    echo -e "${CYAN}• مثال: msfconsole -q -x 'use exploit/...; set RHOST...; exploit'${NC}"
+    echo -e "${YELLOW}═══ الأدوات المتاحة ═══${NC}"
+    echo -e "${GREEN}• SQLMap${NC} - فحص واستغلال ثغرات SQL Injection"
+    echo -e "${GREEN}• Amass${NC} - استكشاف النطاقات الفرعية وجمع المعلومات"
+    echo -e "${GREEN}• Netcat${NC} - أداة الشبكات متعددة الاستخدامات"
+    echo -e "${GREEN}• Nmap${NC} - فحص الشبكات والمنافذ والخدمات"
+    echo -e "${GREEN}• Metasploit${NC} - إطار عمل شامل للاستغلال"
+    echo -e "${GREEN}• Dirb${NC} - اكتشاف الملفات والمجلدات المخفية"
+    echo -e "${GREEN}• Hydra${NC} - كسر كلمات المرور بأنواع مختلفة"
+    echo -e "${GREEN}• Gobuster${NC} - اكتشاف المحتوى والنطاقات بسرعة"
+    echo -e "${GREEN}• Nikto${NC} - فحص خواد الويب والثغرات الشائعة"
+    echo -e "${GREEN}• John The Ripper${NC} - كسر كلمات المرور الم hash"
     echo ""
     
     echo -e "${RED}╔═══════════════════════════════════════════════════════════╗${NC}"
@@ -963,21 +1328,87 @@ show_help() {
     echo -e "${YELLOW}• استخدم هذه الأدوات فقط على أنظمة لديك إذن باختبارها${NC}"
     echo -e "${YELLOW}• الاستخدام غير المصرح به يعتبر جريمة إلكترونية${NC}"
     echo -e "${YELLOW}• احصل دائماً على إذن كتابي قبل اختبار أي نظام${NC}"
-    echo -e "${YELLOW}• المطور غير مسؤول عن أي استخدام خاطئ${NC}"
-    echo ""
-    
-    echo -e "${GREEN}╔═══════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║${WHITE}                     نصائح للاستخدام الآمن                   ${GREEN}║${NC}"
-    echo -e "${GREEN}╚═══════════════════════════════════════════════════════════╝${NC}"
-    echo -e "${CYAN}1. استخدم VPN أو بيئة معزولة عند الاختبار${NC}"
-    echo -e "${CYAN}2. احفظ جميع نتائج الفحوصات للتوثيق${NC}"
-    echo -e "${CYAN}3. ابدأ بالفحوصات السلبية قبل النشطة${NC}"
-    echo -e "${CYAN}4. راقب سرعة الفحص لتجنب إغراق الهدف${NC}"
-    echo -e "${CYAN}5. تأكد من فهمك للأوامر قبل تنفيذها${NC}"
-    echo -e "${CYAN}6. استخدم Resource Files (.rc) في Metasploit للأتمتة${NC}"
     echo ""
     
     echo -e "${PURPLE}اضغط Enter للعودة للقائمة الرئيسية...${NC}"
+    read
+}
+
+# الإعدادات المتقدمة
+advanced_settings() {
+    while true; do
+        header
+        echo -e "${PURPLE}╔═══════════════════════════════════════╗${NC}"
+        echo -e "${PURPLE}║${WHITE}            الإعدادات المتقدمة              ${PURPLE}║${NC}"
+        echo -e "${PURPLE}╚═══════════════════════════════════════╝${NC}"
+        echo ""
+        echo -e "${CYAN}[1]${NC} تحديث النظام"
+        echo -e "${CYAN}[2]${NC} تثبيت أدوات مفقودة"
+        echo -e "${CYAN}[3]${NC} إعداد Proxy"
+        echo -e "${CYAN}[0]${NC} رجوع للقائمة الرئيسية"
+        echo ""
+        echo -ne "${GREEN}اختر رقم الخيار: ${NC}"
+        read choice
+        
+        case $choice in
+            1)
+                CMD="sudo apt update && sudo apt upgrade -y"
+                execute_command "$CMD" "true"
+                ;;
+            2)
+                install_missing_tools
+                ;;
+            3)
+                read_input "أدخل عنوان Proxy (مثل: http://proxy:8080)" PROXY
+                export http_proxy=$PROXY
+                export https_proxy=$PROXY
+                echo -e "${GREEN}تم تعيين Proxy: $PROXY${NC}"
+                sleep 2
+                ;;
+            0)
+                return
+                ;;
+            *)
+                echo -e "${RED}خيار غير صحيح!${NC}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
+# دالة تثبيت الأدوات المفقودة
+install_missing_tools() {
+    header
+    echo -e "${YELLOW}╔═══════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║${WHITE}         تثبيت الأدوات المفقودة           ${YELLOW}║${NC}"
+    echo -e "${YELLOW}╚═══════════════════════════════════════╝${NC}"
+    echo ""
+    
+    echo -e "${CYAN}جارٍ تثبيت الأدوات المفقودة...${NC}"
+    
+    # تثبيت sqlmap
+    if ! command -v sqlmap &> /dev/null; then
+        echo -e "${YELLOW}تثبيت SQLMap...${NC}"
+        git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git /opt/sqlmap
+        sudo ln -sf /opt/sqlmap/sqlmap.py /usr/local/bin/sqlmap
+    fi
+    
+    # تثبيت أدوات أخرى
+    tools_to_install=("amass" "nmap" "dirb" "hydra" "gobuster" "nikto" "john")
+    for tool in "${tools_to_install[@]}"; do
+        if ! command -v $tool &> /dev/null; then
+            echo -e "${YELLOW}تثبيت $tool...${NC}"
+            sudo apt install -y $tool
+        fi
+    done
+    
+    # تثبيت netcat
+    if ! command -v nc &> /dev/null; then
+        sudo apt install -y netcat
+    fi
+    
+    echo -e "${GREEN}✓ تم الانتهاء من التثبيت${NC}"
+    echo -e "${PURPLE}اضغط Enter للمتابعة...${NC}"
     read
 }
 
@@ -985,30 +1416,46 @@ show_help() {
 # بدء البرنامج
 # ═══════════════════════════════════════════════════════════
 
-# التحقق من وجود صلاحيات
-if [[ $EUID -ne 0 ]]; then
-   echo -e "${YELLOW}تنبيه: بعض الأوامر تحتاج صلاحيات root${NC}"
-   echo -e "${YELLOW}يمكنك تشغيل السكريبت بـ: sudo $0${NC}"
-   echo ""
-   sleep 2
-fi
+# التحقق من وجود الأدوات الأساسية
+check_basic_tools() {
+    local basic_tools=("bash" "curl" "wget" "git")
+    for tool in "${basic_tools[@]}"; do
+        if ! command -v $tool &> /dev/null; then
+            echo -e "${RED}✗ $tool غير مثبت - يرجى تثبيته أولاً${NC}"
+            exit 1
+        fi
+    done
+}
 
-# التحقق من الاتصال بالإنترنت (اختياري)
-if ! ping -c 1 8.8.8.8 &> /dev/null; then
-    echo -e "${RED}تحذير: لا يوجد اتصال بالإنترنت${NC}"
-    echo -e "${YELLOW}بعض الأدوات قد لا تعمل بشكل صحيح${NC}"
-    sleep 2
-fi
+# العرض الافتتاحي
+show_welcome() {
+    header
+    echo -e "${GREEN}مرحباً بك في مجموعة أدوات الاختبار الأمني المتكاملة${NC}"
+    echo -e "${CYAN}هذا السكريبت يوفر واجهة سهلة لاستخدام أدوات الاختراق الأخلاقي${NC}"
+    echo ""
+    echo -e "${YELLOW}المميزات:${NC}"
+    echo -e "${WHITE}• واجهة عربية سهلة الاستخدام${NC}"
+    echo -e "${WHITE}• أكثر من 10 أدوات أمنية متكاملة${NC}"
+    echo -e "${WHITE}• أوامر مسبقة الإعداد${NC}"
+    echo -e "${WHITE}• تحقق تلقائي من التثبيت${NC}"
+    echo ""
+    echo -e "${YELLOW}⚠️  استخدم هذه الأدوات بشكل قانوني وأخلاقي فقط${NC}"
+    echo ""
+    echo -e "${PURPLE}اضغط Enter للبدء...${NC}"
+    read
+}
 
-# عرض شاشة الترحيب
-header
-echo -e "${GREEN}مرحباً بك في مجموعة أدوات الاختبار الأمني${NC}"
-echo -e "${CYAN}هذا السكريبت يوفر واجهة سهلة لاستخدام أدوات الاختراق الأخلاقي${NC}"
-echo ""
-echo -e "${YELLOW}⚠️  استخدم هذه الأدوات بشكل قانوني وأخلاقي فقط${NC}"
-echo ""
-echo -e "${PURPLE}اضغط Enter للبدء...${NC}"
-read
+# الدالة الرئيسية للبدء
+main() {
+    # التحقق من الأدوات الأساسية
+    check_basic_tools
+    
+    # عرض الترحيب
+    show_welcome
+    
+    # تشغيل القائمة الرئيسية
+    main_menu
+}
 
-# تشغيل القائمة الرئيسية
-main_menu
+# بدء البرنامج
+main
